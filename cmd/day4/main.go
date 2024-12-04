@@ -102,19 +102,19 @@ func (a *Anchor) isMas(b *Board) (bool, error) {
 	}
 	tl, err := b.getCharAt(a.X-1, a.Y+1)
 	if err != nil {
-		return false, err
+		return false, nil
 	}
 	tr, err := b.getCharAt(a.X+1, a.Y+1)
 	if err != nil {
-		return false, err
+		return false, nil
 	}
 	bl, err := b.getCharAt(a.X-1, a.Y-1)
 	if err != nil {
-		return false, err
+		return false, nil
 	}
 	br, err := b.getCharAt(a.X+1, a.Y-1)
 	if err != nil {
-		return false, err
+		return false, nil
 	}
 
 	firstDiagonal := string(tr) + string(bl)
