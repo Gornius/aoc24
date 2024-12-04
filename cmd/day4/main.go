@@ -77,9 +77,7 @@ func (a *Anchor) getXmasCount(b *Board) (int, error) {
 		for i := 1; i < len(xmas); i++ {
 			char, err := b.getCharAt(a.X+i*direction[0], a.Y+i*direction[1])
 			if err != nil {
-				if errors.Is(err, ErrOutOfBoardRange) {
-					break
-				}
+				break
 			}
 			if char != xmas[i] {
 				break
@@ -104,19 +102,19 @@ func (a *Anchor) isMas(b *Board) (bool, error) {
 	}
 	tl, err := b.getCharAt(a.X-1, a.Y+1)
 	if err != nil {
-		return false, nil
+		return false, err
 	}
 	tr, err := b.getCharAt(a.X+1, a.Y+1)
 	if err != nil {
-		return false, nil
+		return false, err
 	}
 	bl, err := b.getCharAt(a.X-1, a.Y-1)
 	if err != nil {
-		return false, nil
+		return false, err
 	}
 	br, err := b.getCharAt(a.X+1, a.Y-1)
 	if err != nil {
-		return false, nil
+		return false, err
 	}
 
 	firstDiagonal := string(tr) + string(bl)
