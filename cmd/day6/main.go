@@ -58,10 +58,13 @@ func part2(board *Board, guard *Guard) int {
 	for variation := range allVariations {
 		wg.Add(1)
 		go func() {
-			fmt.Printf("checkedVariations: %v\n", checkedVariations)
-			fmt.Printf("outOfRangeVariations: %v\n", outOfRangeVariations)
-			fmt.Printf("infiniteLoopVariations: %v\n", infiniteLoopVariations)
-			fmt.Println("--------")
+			defer wg.Done()
+			defer lock.Unlock()
+			defer fmt.Printf("checkedVariations: %v\n", checkedVariations)
+			defer fmt.Printf("outOfRangeVariations: %v\n", outOfRangeVariations)
+			defer fmt.Printf("infiniteLoopVariations: %v\n", infiniteLoopVariations)
+			defer fmt.Println("--------")
+
 			thisVariationGuard := *guard
 			thisVariationGuard.Board = &variation
 			thisVariationGuard.StepsTaken = []Step{}
@@ -72,13 +75,9 @@ func part2(board *Board, guard *Guard) int {
 			checkedVariations++
 			if thisVariationGuard.IsNextStepOutOfRange() {
 				outOfRangeVariations++
-				lock.Unlock()
-				wg.Done()
 				return
 			}
 			infiniteLoopVariations++
-			lock.Unlock()
-			wg.Done()
 		}()
 	}
 
