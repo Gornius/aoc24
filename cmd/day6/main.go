@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"iter"
+	"sync"
 
 	"github.com/gornius/aoc24/pkg/clone"
 )
@@ -51,24 +52,37 @@ func part2(board *Board, guard *Guard) int {
 	checkedVariations := 0
 	outOfRangeVariations := 0
 
+	lock := sync.RWMutex{}
+	wg := sync.WaitGroup{}
+
 	for variation := range allVariations {
-		fmt.Printf("checkedVariations: %v\n", checkedVariations)
-		fmt.Printf("outOfRangeVariations: %v\n", outOfRangeVariations)
-		fmt.Printf("infiniteLoopVariations: %v\n", infiniteLoopVariations)
-		fmt.Println("--------")
-		thisVariationGuard := *guard
-		thisVariationGuard.Board = &variation
-		thisVariationGuard.StepsTaken = []Step{}
-		for !thisVariationGuard.IsNextStepOutOfRange() && !thisVariationGuard.IsInInfiniteLoop() {
-			thisVariationGuard.TakeAStep()
-		}
-		checkedVariations++
-		if thisVariationGuard.IsNextStepOutOfRange() {
-			outOfRangeVariations++
-			continue
-		}
-		infiniteLoopVariations++
+		wg.Add(1)
+		go func() {
+			fmt.Printf("checkedVariations: %v\n", checkedVariations)
+			fmt.Printf("outOfRangeVariations: %v\n", outOfRangeVariations)
+			fmt.Printf("infiniteLoopVariations: %v\n", infiniteLoopVariations)
+			fmt.Println("--------")
+			thisVariationGuard := *guard
+			thisVariationGuard.Board = &variation
+			thisVariationGuard.StepsTaken = []Step{}
+			for !thisVariationGuard.IsNextStepOutOfRange() && !thisVariationGuard.IsInInfiniteLoop() {
+				thisVariationGuard.TakeAStep()
+			}
+			lock.Lock()
+			checkedVariations++
+			if thisVariationGuard.IsNextStepOutOfRange() {
+				outOfRangeVariations++
+				lock.Unlock()
+				wg.Done()
+				return
+			}
+			infiniteLoopVariations++
+			lock.Unlock()
+			wg.Done()
+		}()
 	}
+
+	wg.Wait()
 
 	return infiniteLoopVariations
 }
