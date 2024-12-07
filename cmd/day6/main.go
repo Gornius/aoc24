@@ -1,9 +1,10 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"iter"
+
+	"github.com/gornius/aoc24/pkg/clone"
 )
 
 func main() {
@@ -125,11 +126,12 @@ func (b *Board) GetAllVariationsWithOneAdditionalObstacle() iter.Seq[Board] {
 				if field.IsVisited {
 					continue
 				}
-				var newBoard Board
-				newBoardData, _ := json.Marshal(b)
-				json.Unmarshal(newBoardData, &newBoard)
+				newBoard, err := clone.GobDeepClone(*b)
+				if err != nil {
+					panic(err)
+				}
 				newBoard.GetField(x, y).IsObstacle = true
-				if !yield(newBoard) {
+				if !yield(*newBoard) {
 					return
 				}
 			}
