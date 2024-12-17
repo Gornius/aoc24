@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"slices"
+	"math"
 
 	"github.com/gornius/aoc24/pkg/mathutils"
 )
@@ -19,9 +19,86 @@ func part1(filePath string) {
 		panic(err)
 	}
 
-	shortestPath := maze.FindCheapestPath()
-	fmt.Println(len(shortestPath.Coords))
-	fmt.Println(CalculatePathCost(shortestPath.Coords))
+	graph := BuildGraph(*maze)
+	shortestDistance := maze.FindShortestDistance(graph)
+
+	fmt.Printf("shortestDistance: %v\n", shortestDistance)
+}
+
+type GraphNode struct {
+	Direction        *Direction
+	Visited          bool
+	ShortestDistance int
+	PreviousNode     *GraphNode
+	Nodes            []*GraphNode
+}
+
+func BuildGraph(maze Maze) map[Coords]*GraphNode {
+	graph := map[Coords]*GraphNode{}
+
+	for coords, block := range maze.Blocks {
+		if block.Type == MazeBlockWall {
+			continue
+		}
+		graph[coords] = &GraphNode{
+			Direction:        nil,
+			Visited:          false,
+			ShortestDistance: math.MaxInt,
+			PreviousNode:     nil,
+			Nodes:            []*GraphNode{},
+		}
+	}
+
+	for coords, node := range graph {
+		for _, dir := range AvailableDirections {
+			neighborCoords := Coords{coords.X + dir.ToVector().X, coords.Y + dir.ToVector().Y}
+			neighbor, ok := graph[neighborCoords]
+			if !ok {
+				continue
+			}
+			node.Nodes = append(node.Nodes, neighbor)
+		}
+	}
+
+	return graph
+}
+
+func (m Maze) FindShortestDistance(graph map[Coords]*GraphNode) int {
+	graph[m.Start].ShortestDistance = 0
+	direction := DirectionRight
+	graph[m.Start].Direction = &direction
+
+	for {
+		min := math.MaxInt
+		var currentNode *GraphNode = nil
+		var currentCoords *Coords = nil
+		for coords, node := range graph {
+			if !node.Visited && node.ShortestDistance < min {
+				min = node.ShortestDistance
+				currentNode = node
+				currentCoords = &coords
+			}
+		}
+
+		for _, direction := range AvailableDirections {
+			nextCoords := Coords{currentCoords.X + direction.ToVector().X, currentCoords.Y + direction.ToVector().Y}
+			nextNode, ok := graph[nextCoords]
+			if !ok {
+				continue
+			}
+			nextDirection := nextCoords.GetDirectionFrom(*currentCoords)
+			distance := nextDirection.CalculateCostToTurn(*currentNode.Direction) + 1
+			if currentNode.ShortestDistance+distance < nextNode.ShortestDistance {
+				graph[nextCoords].Direction = &nextDirection
+				graph[nextCoords].PreviousNode = currentNode
+				graph[nextCoords].ShortestDistance = distance + currentNode.ShortestDistance
+			}
+			if nextCoords == m.End {
+				return nextNode.ShortestDistance
+			}
+		}
+		graph[*currentCoords].Visited = true
+	}
 }
 
 type MazeBlockType rune
@@ -54,6 +131,13 @@ const (
 	DirectionRight
 	DirectionDown
 )
+
+var AvailableDirections = []Direction{
+	DirectionLeft,
+	DirectionUp,
+	DirectionRight,
+	DirectionDown,
+}
 
 type Path struct {
 	Coords    []Coords
@@ -101,97 +185,4 @@ func (c Coords) GetDirectionFrom(previous Coords) Direction {
 	}
 
 	panic("invalid conversion")
-}
-
-func (m Maze) FindCheapestPath() Path {
-	paths := make([]Path, 0, 1024)
-	paths = append(paths,
-		Path{
-			Coords:    []Coords{m.Start},
-			Cost:      0,
-			Direction: DirectionRight,
-		})
-
-	availableDirections := []Direction{DirectionLeft, DirectionUp, DirectionRight, DirectionDown}
-	skip := 0
-	for {
-		if skip >= len(paths) {
-			return paths[0]
-		}
-		slices.SortFunc(paths, func(a Path, b Path) int {
-			return a.Cost - b.Cost
-		})
-		currentPath := paths[skip]
-		head := currentPath.Coords[len(currentPath.Coords)-1]
-		if head == m.End {
-			fmt.Println(currentPath.Cost)
-		}
-		appendedPaths := 0
-		impossibleDirections := 0
-		subSkip := 0
-		for _, direction := range availableDirections {
-			nextCoord := Coords{head.X + direction.ToVector().X, head.Y + direction.ToVector().Y}
-			nextBlock := m.Blocks[nextCoord]
-
-			if nextBlock.Type == MazeBlockWall {
-				impossibleDirections++
-				continue
-			}
-
-			if slices.Contains(currentPath.Coords, nextCoord) {
-				impossibleDirections++
-				continue
-			}
-
-			if nextBlock.Type == MazeBlockFloor {
-				nextDirection := nextCoord.GetDirectionFrom(head)
-				turnCost := nextDirection.CalculateCostToTurn(currentPath.Direction)
-				totalCost := turnCost + 1
-				if totalCost > nextBlock.CheapestPrice {
-					subSkip++
-					continue
-				}
-				m.Blocks[nextCoord] = MazeBlock{
-					Type:          nextBlock.Type,
-					CheapestPrice: totalCost,
-				}
-
-				if appendedPaths == 0 {
-					paths[skip].Coords = append(currentPath.Coords, nextCoord)
-					paths[skip].Direction = nextDirection
-					paths[skip].Cost += totalCost
-				} else {
-					copy := Path{
-						Cost:   currentPath.Cost,
-						Coords: []Coords{},
-					}
-					copy.Coords = append(copy.Coords, currentPath.Coords...)
-					copy.Coords = append(copy.Coords, nextCoord)
-					copy.Direction = nextDirection
-					copy.Cost += totalCost
-					paths = append(paths, copy)
-				}
-				appendedPaths++
-			}
-		}
-		if impossibleDirections == 4 {
-			skip++
-		}
-		if subSkip == 4-impossibleDirections {
-			skip++
-		}
-	}
-}
-
-func CalculatePathCost(coords []Coords) int {
-	cost := 0
-	currentDirection := DirectionRight
-	for i := 1; i < len(coords); i++ {
-		cost++
-		newDirection := coords[i].GetDirectionFrom(coords[i-1])
-		cost += newDirection.CalculateCostToTurn(currentDirection)
-		currentDirection = newDirection
-	}
-
-	return cost
 }
